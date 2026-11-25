@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tempo Diário — Criador de Vídeo 2D</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #141726;
+      color: #f4f5fa;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    h1 { font-size: 20px; color: #ffd699; text-align: center; }
+    .palco {
+      width: 100%;
+      max-width: 900px;
+      position: relative;
+      background: #000;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 12px 35px rgba(0,0,0,0.5);
+    }
+    canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      aspect-ratio: 16 / 9;
+    }
+    .controles {
+      width: 100%;
+      max-width: 900px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .botoes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    button {
+      flex: 1;
+      min-width: 140px;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-play { background: #ffd699; color: #191c2b; }
+    .btn-stop { background: #e06c75; color: #fff; }
+    .btn-full { background: #6ba3d6; color: #111522; }
+    .vozes {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    label { font-size: 13px; color: #c7cbe0; display: block; margin-bottom: 4px; }
+    select, textarea {
+      width: 100%;
+      background: #1f2338;
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 14px;
+    }
+    textarea {
+      min-height: 170px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+    .dica { font-size: 12px; color: #9da4c4; }
+    .palco.cheia {
+      position: fixed;
+      inset: 0;
+      max-width: none;
+      border-radius: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+    }
+    .btn-sair-cheia {
+      display: none;
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      min-width: auto;
+      flex: none;
+    }
+    .palco.cheia .btn-sair-cheia { display: block; }
+  </style>
+</head>
+<body>
+
+  <h1>Tempo Diário — Vídeo 2D</h1>
+
+  <div class="palco" id="palco">
+    <canvas id="tela" width="1280" height="720"></canvas>
+    <button class="btn-sair-cheia" onclick="sairTelaCheia()">✕ Sair</button>
+  </div>
+
+  <div class="controles">
+    <div class="botoes">
+      <button class="btn-play" onclick="iniciarVideo()">▶ Tocar Vídeo</button>
+      <button class="btn-stop" onclick="pararVideo()">⏹ Parar</button>
+      <button class="btn-full" onclick="telaCheia()">⛶ Tela Cheia</button>
+    </div>
+
+    <div class="vozes">
+      <div>
+        <label>Voz do Bonequinho 1 (Azul)</label>
+        <select id="voz1"></select>
+      </div>
+      <div>
+        <label>Voz da Bonequinha 2 (Lilás)</label>
+        <select id="voz2"></select>
+      </div>
+    </div>
+
+    <div>
+      <label>Roteiro (use <strong>1:</strong> para o bonequinho azul e <strong>2:</strong> para a lilás — pode editar quando quiser!)</label>
+      <textarea id="roteiro">1: Ei... posso te fazer uma pergunta sincera? Se você visse alguém caído na estrada hoje... você pararia, ou fingiria que não viu?
+2: Nossa, que pergunta forte... Que a paz de Deus esteja com você! Seja muito bem-vindo ao Tempo Diário.
+1: Sabe, na Bíblia, um homem foi assaltado, ferido e deixado à beira de um caminho deserto.
+2: E pessoas religiosas e importantes passaram por ele, olharam a sua dor, mas atravessaram para o outro lado e seguiram adiante.
+1: Até que veio um samaritano. Alguém de quem ninguém esperava nada... mas ele parou.
+2: Ele sentiu compaixão, cuidou das feridas daquele homem e o levou para um lugar seguro.
+1: O recado de Deus para o seu dia hoje é simples: amor não é só sentimento, amor é atitude.
+2: Não passe direto pela dor de ninguém. Que Deus te abençoe e te use hoje. Tenha um excelente dia!</textarea>
+    </div>
+
+    <p class="dica">Dica: para salvar no seu tablet, toque em <strong>Tela Cheia</strong> e use o <strong>Gravador de Tela</strong> do próprio tablet.</p>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("tela");
+    const ctx = canvas.getContext("2d");
+    const palco = document.getElementById("palco");
+    const selVoz1 = document.getElementById("voz1");
+    const selVoz2 = document.getElementById("voz2");
+
+    let vozesDisponiveis = [];
+    let falante = 0; // 0 = ninguém, 1 = azul, 2 = lilás
+    let legendaAtual = "";
+    let tocando = false;
+    let filaFalas = [];
+    let indiceFala = 0;
+    let pulsoBoca = 0;
+    let ultimoPulsoPalavra = 0;
+
+    // Partículas suaves de fundo
+    const particulas = Array.from({ length: 24 }, (_, i) => ({
+      x: (i * 57) % 1280,
+      y: 60 + ((i * 73) % 410),
+      vel: 0.5 + (i % 4) * 0.25,
+      fase: i * 0.7
+    }));
+
+    function carregarVozes() {
+      const todas = speechSynthesis.getVoices();
+      const pt = todas.filter(v => v.lang.toLowerCase().includes("pt"));
+      vozesDisponiveis = pt.length ? pt : todas;
+
+      [selVoz1, selVoz2].forEach((sel, idx) => {
+        const valorAntes = sel.value;
+        sel.innerHTML = "";
+        vozesDisponiveis.forEach((v, i) => {
+          const opt = document.createElement("option");
+          opt.value = i;
+          opt.textContent = `${v.name} (${v.lang})`;
+          sel.appendChild(opt);
+        });
+        if (valorAntes && sel.options[valorAntes]) {
+          sel.value = valorAntes;
+        } else if (vozesDisponiveis.length > 1 && idx === 1) {
+          sel.selectedIndex = 1;
+        }
+      });
+    }
+
+    carregarVozes();
+    speechSynthesis.onvoiceschanged = carregarVozes;
+
+    function lerRoteiro() {
+      return document.getElementById("roteiro").value
+        .split("\n")
+        .map(l => l.trim())
+        .filter(Boolean)
+        .map(l => {
+          if (l.startsWith("2:")) return { p: 2, texto: l.slice(2).trim() };
+          if (l.startsWith("1:")) return { p: 1, texto: l.slice(2).trim() };
+          return { p: 1, texto: l };
+        });
+    }
+
+    function falarProxima() {
+      if (!tocando || indiceFala >= filaFalas.length) {
+        falante = 0;
+        tocando = false;
+        setTimeout(() => { if (!tocando) legendaAtual = ""; }, 1500);
+        return;
+      }
+
+      const item = filaFalas[indiceFala];
+      falante = item.p;
+      legendaAtual = item.texto;
+
+      const u = new SpeechSynthesisUtterance(item.texto);
+      u.lang = "pt-BR";
+      u.rate = 1.0;
+
+      const idxVoz = item.p === 1 ? Number(selVoz1.value || 0) : Number(selVoz2.value || 0);
+      if (vozesDisponiveis[idxVoz]) {
+        u.voice = vozesDisponiveis[idxVoz];
+      }
+      // Se o aparelho só tiver 1 voz instalada, diferencia levemente o tom
+      if (vozesDisponiveis.length <= 1) {
+        u.pitch = item.p === 1 ? 0.92 : 1.15;
+      } else {
+        u.pitch = 1.0;
+      }
+
+      u.onboundary = () => { ultimoPulsoPalavra = performance.now(); };
+      u.onend = () => {
+        if (!tocando) return;
+        falante = 0;
+        indiceFala++;
+        setTimeout(falarProxima, 380);
+      };
+      u.onerror = () => {
+        if (!tocando) return;
+        indiceFala++;
+        setTimeout(falarProxima, 200);
+      };
+
+      window._falaAtual = u;
+      speechSynthesis.speak(u);
+    }
+
+    function iniciarVideo() {
+      pararVideo();
+      filaFalas = lerRoteiro();
+      if (!filaFalas.length) return;
+      indiceFala = 0;
+      tocando = true;
+      falarProxima();
+    }
+
+    function pararVideo() {
+      tocando = false;
+      falante = 0;
+      legendaAtual = "";
+      speechSynthesis.cancel();
+    }
+
+    function telaCheia() {
+      palco.classList.add("cheia");
+      if (palco.requestFullscreen) {
+        palco.requestFullscreen().catch(() => {});
+      }
+      if (!tocando) iniciarVideo();
+    }
+
+    function sairTelaCheia() {
+      palco.classList.remove("cheia");
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    document.addEventListener("fullscreenchange", () => {
+      if (!document.fullscreenElement) palco.classList.remove("cheia");
+    });
+
+    function desenharBonequinho(cx, cy, corRoupa, corPele, corCabelo, falando, boca, piscando, t, feminino) {
+      const borda = "#232230";
+      const balanco = Math.sin(t * 7.5) * (falando ? 5 : 1.2);
+      cy = cy + balanco;
+
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = borda;
+
+      // Sombra no chão
+      ctx.fillStyle = "#161c2a";
+      ctx.beginPath();
+      ctx.ellipse(cx, 518, 75, 13, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Corpinho redondo
+      ctx.fillStyle = corRoupa;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + 110, 64, 55, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Mãozinhas
+      const maoY = cy + 118 - (falando ? Math.abs(Math.sin(t * 5)) * 12 : 0);
+      ctx.fillStyle = corPele;
+      for (const mx of [cx - 59, cx + 59]) {
+        ctx.beginPath();
+        ctx.arc(mx, maoY, 15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // Cabelo atrás (feminino)
+      if (feminino) {
+        ctx.fillStyle = corCabelo;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - 8, 98, 82, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // Cabeça redonda
+      ctx.fillStyle = corPele;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 88, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Cabelo topo
+      ctx.fillStyle = corCabelo;
+      ctx.beginPath();
+      ctx.arc(cx, cy - 8, 88, Math.PI * 1.04, Math.PI * 1.96);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      if (!feminino) {
+        ctx.beginPath();
+        ctx.ellipse(cx + 3, cy - 90, 22, 14, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // Bochechas rosadas
+      ctx.fillStyle = "#f7a8a8";
+      for (const bx of [cx - 49, cx + 49]) {
+        ctx.beginPath();
+        ctx.ellipse(bx, cy + 19, 13, 9, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Olhos
+      for (const ox of [cx - 32, cx + 32]) {
+        const oy = cy - 12;
+        if (piscando) {
+          ctx.beginPath();
+          ctx.moveTo(ox - 12, oy);
+          ctx.lineTo(ox + 12, oy);
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = "#fff";
+          ctx.beginPath();
+          ctx.ellipse(ox, oy, 13, 16, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = borda;
+          ctx.beginPath();
+          ctx.arc(ox, oy, 7, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#fff";
+          ctx.beginPath();
+          ctx.arc(ox - 2, oy - 4, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Boca
+      const by = cy + 32;
+      if (falando && boca > 0.15) {
+        const ab = 6 + boca * 15;
+        ctx.fillStyle = "#a5444e";
+        ctx.beginPath();
+        ctx.ellipse(cx, by + ab * 0.25, 16, ab, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.arc(cx, by - 4, 16, 0.25, Math.PI - 0.25);
+        ctx.stroke();
+      }
+    }
+
+    function desenharLegenda(texto) {
+      if (!texto) return;
+      ctx.font = "bold 28px 'Segoe UI', sans-serif";
+      const palavras = texto.split(" ");
+      const linhas = [];
+      let atual = "";
+      for (const p of palavras) {
+        const teste = (atual + " " + p).trim();
+        if (ctx.measureText(teste).width <= 1080) {
+          atual = teste;
+        } else {
+          if (atual) linhas.push(atual);
+          atual = p;
+        }
+      }
+      if (atual) linhas.push(atual);
+
+      const altLinha = 38;
+      const altCaixa = linhas.length * altLinha + 28;
+      const yTopo = 720 - altCaixa - 24;
+
+      ctx.fillStyle = "rgba(18, 20, 34, 0.78)";
+      ctx.beginPath();
+      ctx.roundRect(70, yTopo, 1140, altCaixa, 22);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      linhas.forEach((l, i) => {
+        ctx.fillText(l, 640, yTopo + 14 + i * altLinha);
+      });
+    }
+
+    function animar(agora) {
+      const t = agora / 1000;
+
+      // Fundo gradiente
+      const grad = ctx.createLinearGradient(0, 0, 0, 720);
+      grad.addColorStop(0, "#1c2044");
+      grad.addColorStop(1, "#5f4e73");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 1280, 720);
+
+      // Sol/Lua suave
+      ctx.fillStyle = "#705c80";
+      ctx.beginPath(); ctx.arc(640, 420, 160, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#9b768a";
+      ctx.beginPath(); ctx.arc(640, 410, 100, 0, Math.PI * 2); ctx.fill();
+
+      // Colinas
+      ctx.fillStyle = "#2a3648";
+      ctx.beginPath(); ctx.ellipse(350, 640, 500, 180, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#232d40";
+      ctx.beginPath(); ctx.ellipse(950, 655, 500, 185, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#20293a";
+      ctx.fillRect(0, 515, 1280, 205);
+
+      // Luzinhas
+      particulas.forEach(p => {
+        const px = (p.x + Math.sin(t * 0.4 * p.vel + p.fase) * 18 + 1280) % 1280;
+        const py = p.y + Math.cos(t * 0.6 * p.vel + p.fase) * 10;
+        const alpha = (70 + 60 * Math.sin(t * 1.5 + p.fase)) / 255;
+        ctx.fillStyle = `rgba(255, 232, 179, ${alpha.toFixed(2)})`;
+        ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2); ctx.fill();
+      });
+
+      // Badge do canal
+      ctx.fillStyle = "rgba(20, 22, 36, 0.62)";
+      ctx.beginPath();
+      ctx.roundRect(32, 24, 305, 42, 21);
+      ctx.fill();
+      ctx.fillStyle = "#ffe0aa";
+      ctx.font = "bold 20px 'Segoe UI', sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText("Tempo Diário  •  @tempodiario", 52, 45);
+
+      // Movimento da boca enquanto fala
+      const falandoAgora = falante !== 0;
+      const tempoDesdePalavra = agora - ultimoPulsoPalavra;
+      if (falandoAgora) {
+        const onda = Math.abs(Math.sin(t * 13)) * 0.7 + (tempoDesdePalavra < 180 ? 0.3 : 0.15);
+        pulsoBoca = onda;
+      } else {
+        pulsoBoca = 0;
+      }
+
+      const pisca1 = (t % 3.7) < 0.14;
+      const pisca2 = ((t + 1.4) % 4.1) < 0.14;
+
+      desenharBonequinho(390, 350, "#6ba3d6", "#ffe0bd", "#3d344a", falante === 1, falante === 1 ? pulsoBoca : 0, pisca1, t, false);
+      desenharBonequinho(890, 355, "#9b8ac4", "#fad4c0", "#4a3531", falante === 2, falante === 2 ? pulsoBoca : 0, pisca2, t, true);
+
+      desenharLegenda(legendaAtual);
+
+      requestAnimationFrame(animar);
+    }
+
+    requestAnimationFrame(animar);
+  </script>
+</body>
+</html>
